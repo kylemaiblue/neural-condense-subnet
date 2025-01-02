@@ -4,7 +4,7 @@ from typing import Any, List
 import torch
 from transformers import DynamicCache
 from pydantic import BaseModel
-from .common.file import load_npy_from_url
+from .common.file import load_npy_from_url, _load_and_cleanup
 from .constants import TierConfig
 import numpy as np
 import io
@@ -50,17 +50,27 @@ class TextCompressProtocol(Synapse):
     compressed_kv_url: str = ""
     util_data: UtilData = UtilData()
     task_data: TaskData = TaskData()
-
+    
+    def dump_to_json(self):
+        return self.model_dump(include={"context", "target_model", "util_data", "task_data"})
+    
+    @staticmethod
+    def load_from_json(json_data):
+        return TextCompressProtocol(**json_data)
+    
     @property
     def accelerate_score(self) -> float:
         return (self.util_data.bonus_compress_size + self.bonus_time) / 2
 
     @property
     def bonus_time(self) -> float:
-        return 1 - min(
-            1,
-            (self.dendrite.process_time + self.util_data.download_time) / self.timeout,
-        )
+        try:
+            return 1 - min(
+                1,
+                (self.dendrite.process_time + self.util_data.download_time) / self.timeout,
+            )
+        except:
+            return 0
 
     @property
     def miner_payload(self) -> dict:
@@ -99,12 +109,21 @@ class TextCompressProtocol(Synapse):
     async def verify(
         response: "TextCompressProtocol", tier_config: TierConfig
     ) -> tuple[bool, str]:
-        if not re.match(r"^https?://.*\.npy$", response.compressed_kv_url):
-            return False, "Compressed KV URL must use HTTP or HTTPS."
-
-        compressed_kv, filename, download_time, error = await load_npy_from_url(
-            response.compressed_kv_url
-        )
+        #if not re.match(r"^https?://.*\.npy$", response.compressed_kv_url):
+        #    return False, "Compressed KV URL must use HTTP or HTTPS."
+        if response.compressed_kv_url.startswith("http"):
+            compressed_kv, filename, download_time, error = await load_npy_from_url(
+                response.compressed_kv_url
+            )
+        else:
+            filename = response.compressed_kv_url
+            compressed_kv, error = _load_and_cleanup(filename)
+            download_time = 0
+            
+        print("compressed_kv: ", compressed_kv)
+        print("filename: ", filename)
+        print("download_time: ", download_time)
+        print("error: ", error)
         response.util_data.download_time = download_time
         response.util_data.local_filename = filename
         if compressed_kv is None:

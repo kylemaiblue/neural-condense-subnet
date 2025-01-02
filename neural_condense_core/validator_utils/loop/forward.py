@@ -202,6 +202,7 @@ async def get_accuracies(
         target_model=model_name,
         criterias=task_config.criterias,
     ).model_dump()
+    print("payload: ", payload)
     logger.info("Sending payload to scoring backend")
     async with httpx.AsyncClient() as client:
         try:

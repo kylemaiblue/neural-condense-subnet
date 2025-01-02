@@ -10,6 +10,9 @@ from ..anti_exploitation.filter_existance import FilterExistanceChecker
 from ..utils import generate_answer
 from neural_condense_core.protocol import TaskData
 from copy import deepcopy
+from typing import Optional, Union
+from openai import OpenAI
+import os
 
 logger = structlog.get_logger("accuracy")
 
@@ -39,6 +42,11 @@ def accuracy(
         return_tensors="pt",
         add_special_tokens=False,
     ).to(device=device, dtype=torch.long)
+    
+    print("-------CONTEXT-------")
+    print(context)  
+    print("-------END_CONTEXT-------")
+    
     context_length = context_ids.shape[1]
     num_seen_tokens = kv_cache._seen_tokens
     logger.debug("condense-length", length=num_seen_tokens)
@@ -50,6 +58,7 @@ def accuracy(
         negative_chunks=negative_chunks,
         context_length=context_length,
     )
+    logger.info(f"Chunk existance accuracy: {chunk_existance_accuracy}")
     if chunk_existance_accuracy <= 0.1:
         logger.info(
             f"Too low chunk existance accuracy, skipping scoring: {chunk_existance_accuracy}"
@@ -104,7 +113,7 @@ def get_accuracy_llm(
     completion: str,
     ground_truth: str,
     question: str,
-    judge_pipeline: TextGenerationPipeline,
+    judge_pipeline: Union[str, TextGenerationPipeline],
 ) -> float:
     messages = [
         {
@@ -118,13 +127,26 @@ You have to return 'yes' if the response is correct, 'no' if it is incorrect. Th
 """,
         },
     ]
-    completion = judge_pipeline(
-        messages,
-        do_sample=False,
-        max_new_tokens=16,
-    )[0][
-        "generated_text"
-    ][-1]["content"]
+    if type(judge_pipeline) is not str:
+        completion = judge_pipeline(
+            messages,
+            do_sample=False,
+            max_new_tokens=16,
+        )[0][
+            "generated_text"
+        ][-1]["content"]
+    else:
+        if os.getenv("base_url", default=None):
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=os.getenv("base_url"))
+        else:
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            
+        completion = client.chat.completions.create(
+            model=judge_pipeline,
+            messages=messages,
+            max_tokens=128,
+            temperature=0,
+        ).choices[0].message.content
     logger.debug(f"LLM Judge Response: {completion}")
     is_correct = "yes" in completion.lower()
     return 1 if is_correct else 0

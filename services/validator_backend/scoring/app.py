@@ -7,6 +7,7 @@ from transformers import (
     DynamicCache,
     TextGenerationPipeline,
 )
+import os
 import random
 import structlog
 import gc
@@ -17,6 +18,7 @@ from .anti_exploitation.filter_existance import FilterExistanceChecker
 import time
 import numpy as np
 import io
+from openai import OpenAI
 
 gc.enable()
 
@@ -44,20 +46,25 @@ class ScoringService:
             "Condense-AI/Mistral-7B-Instruct-v0.2"
         )
 
-        j_tokenizer = AutoTokenizer.from_pretrained(
-            "upstage/solar-pro-preview-instruct"
-        )
-        j_model = AutoModelForCausalLM.from_pretrained(
-            "upstage/solar-pro-preview-instruct",
-            torch_dtype=self.dtype,
-            trust_remote_code=True,
-        )
-        self.judge_pipeline = TextGenerationPipeline(
-            model=j_model,
-            tokenizer=j_tokenizer,
-            device=self.device,
-            torch_dtype=self.dtype,
-        )
+        judge_model = os.getenv("JUDGE_MODEL", None)
+        if judge_model:
+            print("using judge model: ", judge_model)
+            self.judge_pipeline = judge_model
+        else:
+            j_tokenizer = AutoTokenizer.from_pretrained(
+                "upstage/solar-pro-preview-instruct"
+            )
+            j_model = AutoModelForCausalLM.from_pretrained(
+                "upstage/solar-pro-preview-instruct",
+                torch_dtype=self.dtype,
+                trust_remote_code=True,
+            )
+            self.judge_pipeline = TextGenerationPipeline(
+                model=j_model,
+                tokenizer=j_tokenizer,
+                device=self.device,
+                torch_dtype=self.dtype,
+            )
         self.filter_existance_checker = FilterExistanceChecker()
 
     @torch.no_grad()
