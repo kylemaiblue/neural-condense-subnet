@@ -202,7 +202,7 @@ async def get_accuracies(
         target_model=model_name,
         criterias=task_config.criterias,
     ).model_dump()
-    print("payload: ", payload)
+    # print("payload: ", payload)
     logger.info("Sending payload to scoring backend")
     async with httpx.AsyncClient() as client:
         try:
@@ -228,8 +228,9 @@ async def get_accuracies(
         scoring_response = response.json()
 
     accuracies = scoring_response["metrics"]["accuracy"]
+    gen_answers = scoring_response["total_gen_answers"]
     accelerate_rewards = [r.accelerate_score for r in valid_responses]
-    return accuracies, accelerate_rewards
+    return accuracies, accelerate_rewards, gen_answers
 
 
 def initialize_wandb(dendrite: bt.dendrite, metagraph: bt.metagraph, uid: int):

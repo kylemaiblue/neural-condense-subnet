@@ -63,7 +63,7 @@ def accuracy(
         logger.info(
             f"Too low chunk existance accuracy, skipping scoring: {chunk_existance_accuracy}"
         )
-        return 0
+        return 0, []
 
     questions_ids = [
         tokenizer(
@@ -75,6 +75,7 @@ def accuracy(
         for question in formatted_questions
     ]
     accuracies = []
+    gen_answers = []
     for question_ids, formatted_question, answer, question in zip(
         questions_ids, formatted_questions, answers, questions
     ):
@@ -99,10 +100,11 @@ def accuracy(
         logger.debug(f"Question: {formatted_question}")
         logger.debug(f"Completion: {completion}")
         logger.debug(f"Ground truth: {ground_truth}")
+        gen_answers.append(completion)
         accuracy = get_accuracy_llm(completion, ground_truth, question, judge_pipeline)
         accuracies.append(accuracy)
     logger.info(f"Accuracies: {accuracies}")
-    return chunk_existance_accuracy * sum(accuracies) / len(accuracies)
+    return chunk_existance_accuracy * sum(accuracies) / len(accuracies), gen_answers
 
 
 def preprocess_batch(values: list[float]) -> list[float]:

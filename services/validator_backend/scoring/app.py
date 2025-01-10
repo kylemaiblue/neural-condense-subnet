@@ -82,6 +82,7 @@ class ScoringService:
             "negative_chunks",
             negative_chunks=request.task_data.negative_chunks,
         )
+        total_gen_answers = []
         for miner_response in request.miner_responses:
             try:
                 kv_cache = DynamicCache.from_legacy_cache(
@@ -90,7 +91,7 @@ class ScoringService:
                     )
                 )
                 start_time = time.time()
-                value = metric_handler(
+                value, gen_answers = metric_handler(
                     filter_existance_checker=self.filter_existance_checker,
                     kv_cache=kv_cache,
                     model=self.model,
@@ -112,12 +113,14 @@ class ScoringService:
                     traceback=traceback.format_exc(),
                 )
                 value = None
+                gen_answers = []
             values.append(value)
+            total_gen_answers.extend(gen_answers)
             logger.info(
                 "metric_value", handler_name=metric_handler.__name__, value=value
             )
         values = preprocess_batch(values)
-        return {"metrics": {criteria: values}}
+        return {"metrics": {criteria: values}, "total_gen_answers": total_gen_answers}
 
 
 app = Flask(__name__)

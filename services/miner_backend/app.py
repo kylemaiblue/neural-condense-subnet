@@ -4,6 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
 from kvpress import KnormPress
 import torch
 from .soft_token.soft_token_condenser_modeling import Condenser
+from .my_inference import compress_context as my_compress_context
 import os
 import minio
 import structlog
@@ -38,8 +39,11 @@ class CompressionService:
     def _init_model(self):
         """Initialize model based on selected algorithm"""
         self.device = "cuda"
-
-        if self.algorithm == "kvpress":
+        
+        if self.algorithm == "my_compress":
+            pass 
+        
+        elif self.algorithm == "kvpress":
             self.ckpt = "Condense-AI/Mistral-7B-Instruct-v0.2"
             self.tokenizer = AutoTokenizer.from_pretrained(self.ckpt)
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -81,6 +85,8 @@ class CompressionService:
             return self._compress_soft_token(context)
         elif self.algorithm == "activation_beacon":
             return self._compress_activation_beacon(context)
+        elif self.algorithm == "my_compress":
+            return self._compress_my_compress(context)
 
     def _compress_kvpress(self, context: str) -> str:
         input_ids = self.tokenizer(context, return_tensors="pt", add_special_tokens=False).input_ids.to(
@@ -90,6 +96,11 @@ class CompressionService:
         with torch.no_grad(), self.press(self.model):
             past_key_values = self.model(input_ids, num_logits_to_keep=1).past_key_values
 
+        return self._save_and_return_url(past_key_values)
+    
+    def _compress_my_compress(self, context: str) -> str:
+        print("go into my_compress")
+        past_key_values =  my_compress_context(context)
         return self._save_and_return_url(past_key_values)
 
     def _compress_soft_token(self, context: str) -> str:
@@ -202,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--algorithm",
         default="kvpress",
-        choices=["kvpress", "soft_token", "activation_beacon"],
+        choices=["kvpress", "soft_token", "activation_beacon", "my_compress"],
     )
     args = parser.parse_args()
     app = create_app(args.algorithm)
