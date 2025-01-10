@@ -113,9 +113,9 @@ class ScoringService:
                     traceback=traceback.format_exc(),
                 )
                 value = None
-                gen_answers = []
+                gen_answers = {}
             values.append(value)
-            total_gen_answers.extend(gen_answers)
+            total_gen_answers.append(gen_answers)
             logger.info(
                 "metric_value", handler_name=metric_handler.__name__, value=value
             )

@@ -43,14 +43,11 @@ def accuracy(
         add_special_tokens=False,
     ).to(device=device, dtype=torch.long)
     
-    print("-------CONTEXT-------")
-    print(context)  
-    print("-------END_CONTEXT-------")
     
     context_length = context_ids.shape[1]
     num_seen_tokens = kv_cache._seen_tokens
     logger.debug("condense-length", length=num_seen_tokens)
-    chunk_existance_accuracy: float = filter_existance_checker.filter_existance(
+    chunk_existance_accuracy, detail_results = filter_existance_checker.filter_existance(
         tokenizer=tokenizer,
         model=model,
         kv_cache=kv_cache,
@@ -59,11 +56,11 @@ def accuracy(
         context_length=context_length,
     )
     logger.info(f"Chunk existance accuracy: {chunk_existance_accuracy}")
-    if chunk_existance_accuracy <= 0.1:
-        logger.info(
-            f"Too low chunk existance accuracy, skipping scoring: {chunk_existance_accuracy}"
-        )
-        return 0, []
+    # if chunk_existance_accuracy <= 0.1:
+    #     logger.info(
+    #         f"Too low chunk existance accuracy, skipping scoring: {chunk_existance_accuracy}"
+    #     )
+    #     return 0, []
 
     questions_ids = [
         tokenizer(
@@ -104,7 +101,11 @@ def accuracy(
         accuracy = get_accuracy_llm(completion, ground_truth, question, judge_pipeline)
         accuracies.append(accuracy)
     logger.info(f"Accuracies: {accuracies}")
-    return chunk_existance_accuracy * sum(accuracies) / len(accuracies), gen_answers
+    return chunk_existance_accuracy * sum(accuracies) / len(accuracies),  {
+        "gen_answers": gen_answers,
+        "chunk_existance_accuracy": chunk_existance_accuracy,
+        "check_existence_details": detail_results,
+    }
 
 
 def preprocess_batch(values: list[float]) -> list[float]:
