@@ -82,7 +82,7 @@ def accuracy(
             add_special_tokens=False,
         ).input_ids.to(device=device, dtype=torch.long)
         n_expected_completion_tokens = expected_completion_ids.shape[1]
-        max_new_tokens = int(n_expected_completion_tokens * 1.5)
+        max_new_tokens = 128 #int(n_expected_completion_tokens * 1.5)
         _kv_cache = deepcopy(kv_cache)
         logger.debug("kv_length", length=_kv_cache._seen_tokens)
         completion = generate_answer(
@@ -103,6 +103,7 @@ def accuracy(
     logger.info(f"Accuracies: {accuracies}")
     return chunk_existance_accuracy * sum(accuracies) / len(accuracies),  {
         "gen_answers": gen_answers,
+        "accuracies": accuracies,
         "chunk_existance_accuracy": chunk_existance_accuracy,
         "check_existence_details": detail_results,
     }
