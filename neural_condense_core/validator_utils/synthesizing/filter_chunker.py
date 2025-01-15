@@ -26,13 +26,13 @@ class FilterExistanceChecker:
             self.negative_dataset = self._load_negative_dataset()
             return self._get_negative_message()
 
-    def get_chunks(self, context: str) -> Tuple[str, str]:
+    def get_chunks(self, context: str, size: int = 2) -> Tuple[str, str]:
         # Test on positive case (text from conversation)
         chunks = self.splitter.chunks(context)
         # Get random 2 chunks
-        positive_chunks = random.sample(chunks, 2)
+        positive_chunks = random.sample(chunks, size)
         # Test on negative case (text not from conversation)
         negative_chunks = random.sample(
-            self.splitter.chunks(self._get_negative_message()), 2
+            self.splitter.chunks(self._get_negative_message()), size
         )
         return positive_chunks, negative_chunks
