@@ -8,9 +8,8 @@ from .my_inference import compress_context as my_compress_context
 import os
 import minio
 import structlog
-# from .utils import upload_to_minio
+from .utils import upload_to_minio
 import argparse
-import numpy as np
 
 logger = structlog.get_logger()
 
@@ -19,7 +18,7 @@ class CompressionService:
     def __init__(self, algorithm: str):
         self.dtype = torch.bfloat16
         self.algorithm = algorithm
-        # self._init_minio_client()
+        self._init_minio_client()
         self._init_model()
 
     def _init_minio_client(self):
@@ -97,21 +96,20 @@ class CompressionService:
             past_key_values = self.model(input_ids, num_logits_to_keep=1).past_key_values
 
         return self._save_and_return_url(past_key_values)
-    
-    def _compress_my_compress(self, context: str) -> str:
-        print("go into my_compress")
-        past_key_values =  my_compress_context(context)
-        return self._save_and_return_url(past_key_values)
 
     def _compress_soft_token(self, context: str) -> str:
         compressed_tokens = self.condenser.compress(context)
-        print(f"shape of compressed_tokens: {compressed_tokens.shape}")
-        # with torch.no_grad(), self.press(self.model):
-        with torch.no_grad():
+
+        with torch.no_grad(), self.press(self.model):
             past_key_values = self.model(
                 inputs_embeds=compressed_tokens
             ).past_key_values
 
+        return self._save_and_return_url(past_key_values)
+    
+    def _compress_my_compress(self, context: str) -> str:
+        print("go into my_compress")
+        past_key_values =  my_compress_context(context)
         return self._save_and_return_url(past_key_values)
 
     def _compress_activation_beacon(self, context: str) -> str:
@@ -142,20 +140,13 @@ class CompressionService:
             tuple(tensor.to(dtype=torch.float32).cpu().numpy() for tensor in tensors)
             for tensors in past_key_values
         )
-        algo_name = self.algorithm.replace("/", "_")
-        folder = f"/workspace/cached/{algo_name}"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-            
-        filename = f"{folder}/{int(time.time_ns())}.npy"
-        np.save(filename, numpy_past_key_values)
-        # upload_to_minio(
-        #     self.minio_client, self.bucket_name, filename, numpy_past_key_values
-        # )
-        # save to local file
-        
-        return filename
-        # return f"{self.endpoint_url}/{self.bucket_name}/{filename}"
+
+        filename = f"{int(time.time_ns())}.npy"
+        upload_to_minio(
+            self.minio_client, self.bucket_name, filename, numpy_past_key_values
+        )
+
+        return f"{self.endpoint_url}/{self.bucket_name}/{filename}"
 
     def _validate_minio_config(self):
         """Validate MinIO configuration"""
@@ -177,10 +168,6 @@ class CompressionService:
 def create_app(algorithm):
     app = Flask(__name__)
     service = CompressionService(algorithm)
-    
-    @app.route("/", methods=["GET"])
-    def is_alive():
-        return jsonify({"message": "I'm alive!"})
 
     @app.route("/condense", methods=["POST"])
     def compress_endpoint():
