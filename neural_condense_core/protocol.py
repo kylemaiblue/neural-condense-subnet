@@ -120,7 +120,7 @@ class TextCompressProtocol(Synapse):
             compressed_kv, error = _load_and_cleanup(filename)
             download_time = 0
             
-        print("compressed_kv: ", compressed_kv)
+        # print("compressed_kv: ", compressed_kv)
         print("filename: ", filename)
         print("download_time: ", download_time)
         print("error: ", error)
