@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
 from kvpress import KnormPress
 import torch
 from .soft_token.soft_token_condenser_modeling import Condenser
-from .my_inference import compress_context as my_compress_context
+from .llm_inference import get_past_key_values
 import os
 import minio
 import structlog
@@ -109,7 +109,7 @@ class CompressionService:
     
     def _compress_my_compress(self, context: str) -> str:
         print("go into my_compress")
-        past_key_values =  my_compress_context(context)
+        past_key_values =  get_past_key_values(context)
         return self._save_and_return_url(past_key_values)
 
     def _compress_activation_beacon(self, context: str) -> str:
