@@ -41,7 +41,11 @@ def _check_file_size(response: httpx.Response, max_size_mb: int) -> tuple[bool, 
 
 def _generate_filename(url: str) -> str:
     """Generate a unique filename for downloaded file."""
-    return os.path.join("tmp", str(uuid.uuid4()) + "_" + url.split("/")[-1])
+    save_folder = os.environ["SAVE_FOLDER"]
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder, exist_ok=True)
+
+    return os.path.join(save_folder, str(uuid.uuid4()) + "_" + url.split("/")[-1])
 
 
 async def _download(url: str) -> tuple[str, float, str]:
